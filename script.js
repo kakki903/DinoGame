@@ -9,8 +9,8 @@ const GAME_CONFIG = {
         height: 50
     },
     gravity: 0.8,
-    jumpPower: -12,     // 기본 점프력 감소
-    doubleJumpPower: -10, // 2단 점프력
+    jumpPower: -10,     // 기본 점프력 더 감소
+    doubleJumpPower: -8, // 2단 점프력 더 감소
     slideHeight: 30,
     baseSpeed: 5,
     speedIncrease: 0.001,
@@ -95,8 +95,8 @@ function initializeCanvas() {
 
 function updateCanvasSize() {
     // 플레이어 수에 따라 캔버스 높이 조정
-    const baseHeight = 250;  // 1인용 기본 높이
-    const heightPerPlayer = 200;  // 플레이어당 추가 높이
+    const baseHeight = 300;  // 1인용 기본 높이 증가
+    const heightPerPlayer = 250;  // 플레이어당 추가 높이 증가
     const newHeight = Math.max(baseHeight, heightPerPlayer * gameState.players);
     
     GAME_CONFIG.canvas.height = newHeight;
@@ -279,6 +279,13 @@ class Player {
         if (this.isJumping) {
             this.velocityY += GAME_CONFIG.gravity;
             this.y += this.velocityY;
+            
+            // 플레이어 영역 상단 제한 (다른 플레이어 영역 침범 방지)
+            const areaTop = this.gameAreaY + 20; // 약간의 여유 공간
+            if (this.y < areaTop) {
+                this.y = areaTop;
+                this.velocityY = 0; // 위쪽 충돌 시 속도 0
+            }
             
             // 착지 체크
             if (this.y >= this.groundY) {
