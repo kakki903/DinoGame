@@ -229,14 +229,15 @@ function updateKeySettings() {
     const jumpKeyName = keyNames[playerKeys.jump] || playerKeys.jump;
     const slideKeyName = keyNames[playerKeys.slide] || playerKeys.slide;
 
-    div.innerHTML = `<span style="color: ${
-      PLAYER_COLORS[i]
-    }; font-weight: bold;">플레이어 ${i + 1}:</span>
-            <div class="key-controls">
-                <button class="key-change-btn" onclick="changeKey(${i}, 'jump')">${jumpKeyName} (점프)</button>
-                <button class="key-change-btn" onclick="changeKey(${i}, 'slide')">${slideKeyName} (슬라이드)</button>
-            </div>
-            `;
+    div.innerHTML = `
+        <span style="color: ${PLAYER_COLORS[i]}; font-weight: bold;">플레이어 ${
+      i + 1
+    }:</span>
+        <div class="key-controls">
+            <button class="key-change-btn" onclick="changeKey(${i}, 'jump')">${jumpKeyName} (점프)</button>
+            <button class="key-change-btn" onclick="changeKey(${i}, 'slide')">${slideKeyName} (슬라이드)</button>
+        </div>
+    `;
     keySettings.appendChild(div);
   }
 }
