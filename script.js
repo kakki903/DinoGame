@@ -37,7 +37,7 @@ let isChangingKey = null; // { playerIndex, keyType } 또는 null
 let gameState = {
   screen: "menu", // 'menu', 'game', 'gameOver', 'paused'
   players: 1,
-  mode: "score", // 'score', 'battle'
+  mode: "battle", // 'score', 'battle'
   speedMultiplier: 1,
   score: 0,
   distance: 0,
@@ -229,15 +229,14 @@ function updateKeySettings() {
     const jumpKeyName = keyNames[playerKeys.jump] || playerKeys.jump;
     const slideKeyName = keyNames[playerKeys.slide] || playerKeys.slide;
 
-    div.innerHTML = 
-            <span style="color: ${
-              PLAYER_COLORS[i]
-            }; font-weight: bold;">플레이어 ${i + 1}:</span>
+    div.innerHTML = `<span style="color: ${
+      PLAYER_COLORS[i]
+    }; font-weight: bold;">플레이어 ${i + 1}:</span>
             <div class="key-controls">
                 <button class="key-change-btn" onclick="changeKey(${i}, 'jump')">${jumpKeyName} (점프)</button>
                 <button class="key-change-btn" onclick="changeKey(${i}, 'slide')">${slideKeyName} (슬라이드)</button>
             </div>
-        ;
+            `;
     keySettings.appendChild(div);
   }
 }
@@ -258,13 +257,13 @@ function loadBestScores() {
   let html = "";
 
   for (let playerCount = 1; playerCount <= 4; playerCount++) {
-    const scoreKey = ${playerCount}p_score;
-    const battleKey = ${playerCount}p_battle;
+    const scoreKey = `${playerCount}p_score`;
+    const battleKey = `${playerCount}p_battle`;
 
     if (scores[scoreKey] || scores[battleKey]) {
-      html += <div><strong>${playerCount}인:</strong>;
-      if (scores[scoreKey]) html +=  점수모드 ${scores[scoreKey]}점;
-      if (scores[battleKey]) html +=  대결모드 ${scores[battleKey]}점;
+      html += `<div><strong>${playerCount}인:</strong>`;
+      if (scores[scoreKey]) html += ` 점수모드 ${scores[scoreKey]}점`;
+      if (scores[battleKey]) html += ` 대결모드 ${scores[battleKey]}점`;
       html += "</div>";
     }
   }
@@ -274,7 +273,7 @@ function loadBestScores() {
 
 function saveBestScore() {
   const scores = JSON.parse(localStorage.getItem("dinoRunBestScores") || "{}");
-  const key = ${gameState.players}p_${gameState.mode};
+  const key = `${gameState.players}p_${gameState.mode}`;
 
   if (!scores[key] || gameState.score > scores[key]) {
     scores[key] = gameState.score;
@@ -414,8 +413,8 @@ class Player {
     ctx.textAlign = "center";
     ctx.strokeStyle = "black";
     ctx.lineWidth = 2;
-    ctx.strokeText(P${this.index + 1}, this.x + this.width / 2, this.y - 5);
-    ctx.fillText(P${this.index + 1}, this.x + this.width / 2, this.y - 5);
+    ctx.strokeText(`P${this.index + 1}`, this.x + this.width / 2, this.y - 5);
+    ctx.fillText(`P${this.index + 1}`, this.x + this.width / 2, this.y - 5);
 
     ctx.globalAlpha = 1;
   }
@@ -684,61 +683,185 @@ function renderGame() {
     ctx.font = "bold 16px Arial";
     ctx.textAlign = "left";
     ctx.fillText(
-      플레이어 ${i + 1} - ${Math.floor(player.distance / 10)}점,
+      `플레이어 ${i + 1} - ${Math.floor(player.distance / 10)} 점`,
       10,
       areaY + 25
     );
 
     if (!player.isAlive) {
-      ctx.fillStyle = "rgba(255, 0, 0, 0.7)";
-      ctx.font = "bold 24px Arial";
+      // 플레이어 수에 따른 등수 표시 결정
+      let rankText = "";
+      let rankEmoji = "";
+      let backgroundColor = "";
+      let flashColor = "";
+
+      if (gameState.players === 1) {
+        rankText = "GAME OVER";
+        rankEmoji = "💀";
+        backgroundColor = "rgba(139, 0, 0, 0.8)";
+        flashColor = "rgba(255, 0, 0, 0.4)";
+      } else {
+        // 현재 죽은 플레이어들 중에서의 순위 계산
+        const deadPlayers = players.filter((p) => !p.isAlive);
+        const sortedDeadPlayers = deadPlayers.sort(
+          (a, b) => b.distance - a.distance
+        );
+        const playerRank =
+          sortedDeadPlayers.findIndex((p) => p.index === player.index) + 1;
+
+        // 전체 플레이어 수를 기준으로 실제 등수 계산
+        const totalDeadCount = deadPlayers.length;
+        const actualRank = gameState.players - totalDeadCount + playerRank;
+
+        if (gameState.players === 2) {
+          if (actualRank === 1) {
+            rankText = "1등";
+            rankEmoji = "🥇";
+            backgroundColor = "rgba(255, 215, 0, 0.8)"; // 금색
+            flashColor = "rgba(255, 223, 0, 0.4)";
+          } else {
+            rankText = "2등";
+            rankEmoji = "🥈";
+            backgroundColor = "rgba(192, 192, 192, 0.8)"; // 은색
+            flashColor = "rgba(211, 211, 211, 0.4)";
+          }
+        } else if (gameState.players === 3) {
+          if (actualRank === 1) {
+            rankText = "1등";
+            rankEmoji = "🥇";
+            backgroundColor = "rgba(255, 215, 0, 0.8)"; // 금색
+            flashColor = "rgba(255, 223, 0, 0.4)";
+          } else if (actualRank === 2) {
+            rankText = "2등";
+            rankEmoji = "🥈";
+            backgroundColor = "rgba(192, 192, 192, 0.8)"; // 은색
+            flashColor = "rgba(211, 211, 211, 0.4)";
+          } else {
+            rankText = "3등";
+            rankEmoji = "🥉";
+            backgroundColor = "rgba(205, 127, 50, 0.8)"; // 동색
+            flashColor = "rgba(218, 165, 32, 0.4)";
+          }
+        } else if (gameState.players === 4) {
+          if (actualRank === 1) {
+            rankText = "1등";
+            rankEmoji = "🥇";
+            backgroundColor = "rgba(255, 215, 0, 0.8)"; // 금색
+            flashColor = "rgba(255, 223, 0, 0.4)";
+          } else if (actualRank === 2) {
+            rankText = "2등";
+            rankEmoji = "🥈";
+            backgroundColor = "rgba(192, 192, 192, 0.8)"; // 은색
+            flashColor = "rgba(211, 211, 211, 0.4)";
+          } else if (actualRank === 3) {
+            rankText = "3등";
+            rankEmoji = "🥉";
+            backgroundColor = "rgba(205, 127, 50, 0.8)"; // 동색
+            flashColor = "rgba(218, 165, 32, 0.4)";
+          } else {
+            rankText = "꼴등";
+            rankEmoji = "💀";
+            backgroundColor = "rgba(139, 0, 0, 0.8)"; // 빨간색
+            flashColor = "rgba(255, 0, 0, 0.4)";
+          }
+        }
+      }
+
+      // 죽은 플레이어 영역에 등수에 맞는 배경색
+      ctx.fillStyle = backgroundColor;
+      ctx.fillRect(0, areaY, GAME_CONFIG.canvas.width, areaHeight);
+
+      // 번쩍이는 효과를 위한 추가 레이어
+      const flashIntensity = Math.sin(Date.now() * 0.01) * 0.3 + 0.7;
+      ctx.fillStyle = flashColor.replace(
+        "0.4",
+        (flashIntensity * 0.4).toString()
+      );
+      ctx.fillRect(0, areaY, GAME_CONFIG.canvas.width, areaHeight);
+
+      // 등수/게임오버 텍스트 표시
+      ctx.fillStyle = "white";
+      ctx.font = "bold 36px Arial";
       ctx.textAlign = "center";
-      ctx.fillText(
-        "GAME OVER",
+      ctx.strokeStyle = "darkred";
+      ctx.lineWidth = 3;
+      ctx.strokeText(
+        `${rankEmoji} ${rankText} ${rankEmoji}`,
         GAME_CONFIG.canvas.width / 2,
         areaY + areaHeight / 2
       );
+      ctx.fillText(
+        `${rankEmoji} ${rankText} ${rankEmoji}`,
+        GAME_CONFIG.canvas.width / 2,
+        areaY + areaHeight / 2
+      );
+
+      // 추가 텍스트
+      if (gameState.players === 1) {
+        ctx.fillStyle = "yellow";
+        ctx.font = "bold 18px Arial";
+        ctx.strokeStyle = "red";
+        ctx.lineWidth = 2;
+        ctx.strokeText(
+          "ELIMINATED!",
+          GAME_CONFIG.canvas.width / 2,
+          areaY + areaHeight / 2 + 40
+        );
+        ctx.fillText(
+          "ELIMINATED!",
+          GAME_CONFIG.canvas.width / 2,
+          areaY + areaHeight / 2 + 40
+        );
+      } else {
+        ctx.fillStyle = "yellow";
+        ctx.font = "bold 18px Arial";
+        ctx.strokeStyle = "red";
+        ctx.lineWidth = 2;
+        ctx.strokeText(
+          `${Math.floor(player.distance / 10)}점`,
+          GAME_CONFIG.canvas.width / 2,
+          areaY + areaHeight / 2 + 40
+        );
+        ctx.fillText(
+          `${Math.floor(player.distance / 10)}점`,
+          GAME_CONFIG.canvas.width / 2,
+          areaY + areaHeight / 2 + 40
+        );
+      }
     }
   }
 }
 
 function drawBackground(areaY, areaHeight, playerIndex) {
-  // 구름 그리기 (각 플레이어별로)
-  ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
-  const cloudOffset = (gameState.distance * 0.1) % 200;
-  const cloudsInWidth = Math.ceil(GAME_CONFIG.canvas.width / 150);
-  const cloudY = areaY + 30;
-
-  for (let i = 0; i < cloudsInWidth; i++) {
-    const x = i * 150 - cloudOffset;
-    if (x > -60 && x < GAME_CONFIG.canvas.width + 60) {
-      ctx.beginPath();
-      ctx.arc(x, cloudY, 10, 0, Math.PI * 2);
-      ctx.arc(x + 15, cloudY, 15, 0, Math.PI * 2);
-      ctx.arc(x + 30, cloudY, 10, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
+  // 배경은 단순하게 유지
 }
 
 function updateGameUI() {
-  scoreDisplay.textContent = 점수: ${gameState.score};
-  speedDisplay.textContent = 속도: ${(
-    (gameState.gameSpeed / GAME_CONFIG.baseSpeed) *
-    gameState.speedMultiplier
-  ).toFixed(1)}x;
+  scoreDisplay.textContent = `점수: ${gameState.score}`;
+  const currentSpeed =
+    (gameState.gameSpeed / GAME_CONFIG.baseSpeed) * gameState.speedMultiplier;
+  speedDisplay.textContent = `속도: ${currentSpeed.toFixed(1)}x`;
+
+  // 속도에 따른 색상 변경
+  if (currentSpeed >= 2.0) {
+    speedDisplay.style.color = "#ff0000";
+  } else if (currentSpeed >= 1.5) {
+    speedDisplay.style.color = "#ff8c00";
+  } else {
+    speedDisplay.style.color = "#666";
+  }
 
   // 플레이어 상태 업데이트
   playerStatus.innerHTML = "";
   for (let i = 0; i < players.length; i++) {
     const player = players[i];
     const div = document.createElement("div");
-    div.className = player-info ${player.isAlive ? "alive" : "dead"};
+    div.className = `player-info ${player.isAlive ? "alive" : "dead"}`;
     div.style.borderColor = player.color;
     div.style.color = player.color;
-    div.textContent = 플레이어 ${i + 1}: ${
+    div.textContent = `플레이어 ${i + 1}: ${
       player.isAlive ? "생존" : "사망"
-    } | ${Math.floor(player.distance / 10)}점;
+    } | ${Math.floor(player.distance / 10)} 점`;
     playerStatus.appendChild(div);
   }
 }
@@ -787,27 +910,29 @@ function endGame() {
   // 최고 기록 저장
   const isNewRecord = saveBestScore();
 
-  // 결과 표시
-  showGameResults(isNewRecord);
-  showScreen("gameOver");
-  loadBestScores(); // 최고 기록 새로고침
+  // 3초 후에 결과 화면 표시
+  setTimeout(() => {
+    showGameResults(isNewRecord);
+    showScreen("gameOver");
+    loadBestScores(); // 최고 기록 새로고침
+  }, 3000);
 }
 
 function showGameResults(isNewRecord) {
   let html = "";
 
   if (gameState.mode === "score") {
-    html += <div class="result-item">;
-    html += <strong>최종 점수: ${gameState.score}점</strong>;
-    if (isNewRecord) html +=  🎉 신기록!;
-    html += </div>;
+    html += `<div class="result-item">`;
+    html += `<strong>최종 점수: ${gameState.score}점</strong>`;
+    if (isNewRecord) html += ` 🎉 신기록!`;
+    html += `</div>`;
 
-    html += <h4>개별 점수:</h4>;
+    html += `<h4>개별 점수:</h4>`;
     for (let i = 0; i < players.length; i++) {
       const player = players[i];
-      html += <div class="result-item" style="border-color: ${player.color}">;
-      html += 플레이어 ${i + 1}: ${Math.floor(player.distance / 10)}점;
-      html += </div>;
+      html += `<div class="result-item" style="border-color: ${player.color}">`;
+      html += `플레이어 ${i + 1}: ${Math.floor(player.distance / 10)}점`;
+      html += `</div>`;
     }
   } else {
     // 대결모드 순위
@@ -817,22 +942,22 @@ function showGameResults(isNewRecord) {
       return b.distance - a.distance;
     });
 
-    html += <h4>최종 순위:</h4>;
+    html += `<h4>최종 순위:</h4>`;
     for (let i = 0; i < sortedPlayers.length; i++) {
       const player = sortedPlayers[i];
       const rank = i + 1;
       const medal =
         rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : "";
 
-      html += <div class="result-item" style="border-color: ${player.color}">;
-      html += ${rank}위 ${medal} 플레이어 ${player.index + 1}: ${Math.floor(
+      html += `<div class="result-item" style="border-color: ${player.color}">`;
+      html += `${rank}위 ${medal} 플레이어 ${player.index + 1}: ${Math.floor(
         player.distance / 10
-      )}점;
-      html += </div>;
+      )}점`;
+      html += `</div>`;
     }
 
     if (isNewRecord) {
-      html += <div style="color: #FF6347; font-weight: bold; margin-top: 10px;">🎉 신기록!</div>;
+      html += `<div style="color: #FF6347; font-weight: bold; margin-top: 10px;">🎉 신기록!</div>`;
     }
   }
 
