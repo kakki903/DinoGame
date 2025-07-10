@@ -156,7 +156,7 @@ class Obstacle {
       this.color = "#32CD32";
     } else {
       this.width = 20;
-      this.height = 80;
+      this.height = 90;
       this.y = groundY - this.height;
       this.color = "#228B22";
     }
