@@ -104,7 +104,7 @@ function initializeCanvas() {
 function updateCanvasSize() {
   // 플레이어 수에 따라 캔버스 높이 조정
   const baseHeight = 250; // 1인용 기본 높이
-  const heightPerPlayer = 200; // 플레이어당 추가 높이
+  const heightPerPlayer = 250; // 플레이어당 추가 높이
   const newHeight = Math.max(baseHeight, heightPerPlayer * gameState.players);
 
   GAME_CONFIG.canvas.height = newHeight;
