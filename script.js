@@ -378,17 +378,28 @@ class Obstacle {
     constructor(x, type = 'cactus', playerIndex = 0) {
         this.x = x;
         this.type = type;
-        this.width = type === 'cactus' ? 30 : 50;
-        this.height = type === 'cactus' ? 60 : 30;
         this.playerIndex = playerIndex;
         
         const gameAreaHeight = GAME_CONFIG.canvas.height / gameState.players;
         const gameAreaY = playerIndex * gameAreaHeight;
+        const groundY = gameAreaY + gameAreaHeight - GAME_CONFIG.ground.height;
         
-        this.y = type === 'cactus' ? 
-            gameAreaY + gameAreaHeight - GAME_CONFIG.ground.height - this.height :
-            gameAreaY + gameAreaHeight - GAME_CONFIG.ground.height - 100;
-        this.color = type === 'cactus' ? '#228B22' : '#8B4513';
+        if (type === 'cactus') {
+            this.width = 25;
+            this.height = 50;
+            this.y = groundY - this.height;
+            this.color = '#228B22';
+        } else if (type === 'bird') {
+            this.width = 40;
+            this.height = 25;
+            this.y = groundY - 80; // 플레이어 점프 높이에 맞춤
+            this.color = '#8B4513';
+        } else if (type === 'lowCactus') {
+            this.width = 30;
+            this.height = 30;
+            this.y = groundY - this.height;
+            this.color = '#32CD32';
+        }
     }
     
     update() {
@@ -398,12 +409,23 @@ class Obstacle {
     draw() {
         ctx.fillStyle = this.color;
         if (this.type === 'cactus') {
-            // 선인장 그리기
+            // 높은 선인장 - 점프로 피해야 함
+            ctx.fillRect(this.x + 5, this.y, 15, this.height);
+            ctx.fillRect(this.x, this.y + 15, 25, 10);
+            ctx.fillRect(this.x + 8, this.y - 5, 8, 15);
+        } else if (this.type === 'bird') {
+            // 새 - 점프로 피해야 함 (공중에 있음)
+            ctx.fillRect(this.x + 10, this.y + 5, 20, 15);
+            ctx.fillRect(this.x + 5, this.y + 8, 10, 8);
+            ctx.fillRect(this.x + 30, this.y + 8, 10, 8);
+            // 날개
+            ctx.fillStyle = '#654321';
+            ctx.fillRect(this.x + 12, this.y, 16, 8);
+        } else if (this.type === 'lowCactus') {
+            // 낮은 선인장 - 슬라이드로 피해야 함
             ctx.fillRect(this.x, this.y, this.width, this.height);
-            ctx.fillRect(this.x + 10, this.y - 10, 10, 20);
-        } else {
-            // 새 그리기
-            ctx.fillRect(this.x, this.y, this.width, this.height);
+            ctx.fillRect(this.x + 5, this.y - 8, 8, 12);
+            ctx.fillRect(this.x + 17, this.y - 8, 8, 12);
         }
     }
     
@@ -481,7 +503,16 @@ function spawnObstacles() {
         if (!lastObstacle || 
             spawnX - lastObstacle.x > minDistance + Math.random() * (maxDistance - minDistance)) {
             
-            const type = Math.random() > 0.7 ? 'bird' : 'cactus';
+            const rand = Math.random();
+            let type;
+            if (rand < 0.4) {
+                type = 'cactus';     // 40% - 점프로 피함
+            } else if (rand < 0.7) {
+                type = 'lowCactus';  // 30% - 슬라이드로 피함
+            } else {
+                type = 'bird';       // 30% - 점프로 피함
+            }
+            
             const obstacle = new Obstacle(spawnX, type, player.index);
             player.obstacles.push(obstacle);
         }
