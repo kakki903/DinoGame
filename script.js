@@ -136,8 +136,6 @@ function initializeEventListeners() {
     
     // 키보드 이벤트
     document.addEventListener('keydown', (e) => {
-        pressedKeys[e.code] = true;
-        
         // 키 설정 변경 모드인 경우
         if (isChangingKey) {
             PLAYER_KEYS[isChangingKey.playerIndex][isChangingKey.keyType] = e.code;
@@ -148,16 +146,21 @@ function initializeEventListeners() {
         }
         
         if (gameState.screen === 'game' && !gameState.isPaused) {
-            handlePlayerInput(e.code);
+            handlePlayerInput(e.code, true); // 키 다운 이벤트
         }
         
         // ESC 키로 일시정지
         if (e.key === 'Escape' && gameState.screen === 'game') {
             togglePause();
         }
+        
+        pressedKeys[e.code] = true;
     });
     
     document.addEventListener('keyup', (e) => {
+        if (gameState.screen === 'game' && !gameState.isPaused) {
+            handlePlayerInput(e.code, false); // 키 업 이벤트
+        }
         pressedKeys[e.code] = false;
     });
 }
@@ -239,10 +242,11 @@ function saveBestScore() {
 class Player {
     constructor(index) {
         this.index = index;
-        this.gameAreaWidth = GAME_CONFIG.canvas.width / gameState.players;
-        this.gameAreaX = index * this.gameAreaWidth;
-        this.x = this.gameAreaX + 80;
-        this.y = GAME_CONFIG.canvas.height - GAME_CONFIG.ground.height - 50;
+        this.gameAreaHeight = GAME_CONFIG.canvas.height / gameState.players;
+        this.gameAreaY = index * this.gameAreaHeight;
+        this.x = 80;
+        this.groundY = this.gameAreaY + this.gameAreaHeight - GAME_CONFIG.ground.height - 50;
+        this.y = this.groundY;
         this.width = 40;
         this.height = 50;
         this.velocityY = 0;
@@ -252,7 +256,6 @@ class Player {
         this.color = PLAYER_COLORS[index];
         this.distance = 0;
         this.keys = PLAYER_KEYS[index];
-        this.groundY = this.y;
         this.obstacles = []; // 각 플레이어별 독립된 장애물
     }
     
@@ -307,14 +310,52 @@ class Player {
             ctx.globalAlpha = 0.3;
         }
         
+        // 디노 몸체 (메인 색상)
         ctx.fillStyle = this.color;
-        ctx.fillRect(this.x, this.y, this.width, this.height);
+        ctx.fillRect(this.x + 5, this.y + 20, 30, 25);
+        
+        // 디노 머리
+        ctx.fillRect(this.x + 35, this.y + 10, 15, 15);
+        
+        // 디노 목
+        ctx.fillRect(this.x + 30, this.y + 15, 10, 10);
+        
+        // 디노 꼬리
+        ctx.fillRect(this.x, this.y + 25, 10, 8);
+        
+        // 다리 (슬라이딩 시 다르게 표시)
+        if (this.isSliding) {
+            // 슬라이딩 시 다리
+            ctx.fillRect(this.x + 10, this.y + 40, 8, 5);
+            ctx.fillRect(this.x + 22, this.y + 40, 8, 5);
+        } else {
+            // 일반 다리
+            ctx.fillRect(this.x + 10, this.y + 45, 6, 8);
+            ctx.fillRect(this.x + 24, this.y + 45, 6, 8);
+        }
+        
+        // 눈
+        ctx.fillStyle = 'white';
+        ctx.fillRect(this.x + 37, this.y + 12, 3, 3);
+        ctx.fillRect(this.x + 42, this.y + 12, 3, 3);
+        
+        // 눈동자
+        ctx.fillStyle = 'black';
+        ctx.fillRect(this.x + 38, this.y + 13, 1, 1);
+        ctx.fillRect(this.x + 43, this.y + 13, 1, 1);
+        
+        // 입
+        ctx.fillStyle = 'black';
+        ctx.fillRect(this.x + 45, this.y + 18, 3, 2);
         
         // 플레이어 번호 표시
         ctx.fillStyle = 'white';
-        ctx.font = '16px Arial';
+        ctx.font = 'bold 14px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText(this.index + 1, this.x + this.width/2, this.y + this.height/2 + 5);
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 2;
+        ctx.strokeText(`P${this.index + 1}`, this.x + this.width/2, this.y - 5);
+        ctx.fillText(`P${this.index + 1}`, this.x + this.width/2, this.y - 5);
         
         ctx.globalAlpha = 1;
     }
@@ -331,14 +372,19 @@ class Player {
 
 // 장애물 클래스
 class Obstacle {
-    constructor(x, type = 'cactus') {
+    constructor(x, type = 'cactus', playerIndex = 0) {
         this.x = x;
         this.type = type;
         this.width = type === 'cactus' ? 30 : 50;
         this.height = type === 'cactus' ? 60 : 30;
+        this.playerIndex = playerIndex;
+        
+        const gameAreaHeight = GAME_CONFIG.canvas.height / gameState.players;
+        const gameAreaY = playerIndex * gameAreaHeight;
+        
         this.y = type === 'cactus' ? 
-            GAME_CONFIG.canvas.height - GAME_CONFIG.ground.height - this.height :
-            GAME_CONFIG.canvas.height - GAME_CONFIG.ground.height - 100;
+            gameAreaY + gameAreaHeight - GAME_CONFIG.ground.height - this.height :
+            gameAreaY + gameAreaHeight - GAME_CONFIG.ground.height - 100;
         this.color = type === 'cactus' ? '#228B22' : '#8B4513';
     }
     
@@ -368,16 +414,20 @@ class Obstacle {
     }
 }
 
-function handlePlayerInput(code) {
+function handlePlayerInput(code, isKeyDown) {
     for (let player of players) {
         if (!player.isAlive) continue;
         
-        if (code === player.keys.jump) {
+        if (code === player.keys.jump && isKeyDown) {
             player.jump();
         }
         
         if (code === player.keys.slide) {
-            player.startSlide();
+            if (isKeyDown) {
+                player.startSlide();
+            } else {
+                player.stopSlide();
+            }
         }
     }
 }
@@ -423,14 +473,13 @@ function spawnObstacles() {
         const lastObstacle = player.obstacles[player.obstacles.length - 1];
         const minDistance = GAME_CONFIG.obstacleMinDistance;
         const maxDistance = GAME_CONFIG.obstacleMaxDistance;
-        const spawnX = player.gameAreaX + player.gameAreaWidth;
+        const spawnX = GAME_CONFIG.canvas.width;
         
         if (!lastObstacle || 
             spawnX - lastObstacle.x > minDistance + Math.random() * (maxDistance - minDistance)) {
             
             const type = Math.random() > 0.7 ? 'bird' : 'cactus';
-            const obstacle = new Obstacle(spawnX, type);
-            obstacle.playerIndex = player.index; // 어느 플레이어의 장애물인지 표시
+            const obstacle = new Obstacle(spawnX, type, player.index);
             player.obstacles.push(obstacle);
         }
     }
@@ -446,12 +495,6 @@ function updateGame() {
     for (let player of players) {
         player.update();
         
-        // 슬라이드 키 해제 체크
-        const slideKey = player.keys.slide;
-        if (!pressedKeys[slideKey]) {
-            player.stopSlide();
-        }
-        
         // 각 플레이어의 장애물 업데이트
         for (let obstacle of player.obstacles) {
             obstacle.update();
@@ -459,7 +502,7 @@ function updateGame() {
         
         // 각 플레이어의 화면 밖 장애물 제거
         player.obstacles = player.obstacles.filter(obstacle => 
-            obstacle.x > player.gameAreaX - obstacle.width);
+            obstacle.x > -obstacle.width);
     }
     
     // 새 장애물 생성
@@ -480,29 +523,29 @@ function renderGame() {
     // 캔버스 클리어
     ctx.clearRect(0, 0, GAME_CONFIG.canvas.width, GAME_CONFIG.canvas.height);
     
-    // 각 플레이어별 게임 영역 그리기
+    // 각 플레이어별 게임 영역 그리기 (세로 분할)
     for (let i = 0; i < players.length; i++) {
         const player = players[i];
-        const areaX = player.gameAreaX;
-        const areaWidth = player.gameAreaWidth;
+        const areaHeight = player.gameAreaHeight;
+        const areaY = player.gameAreaY;
         
         // 게임 영역 구분선
         if (i > 0) {
             ctx.strokeStyle = '#333';
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.moveTo(areaX, 0);
-            ctx.lineTo(areaX, GAME_CONFIG.canvas.height);
+            ctx.moveTo(0, areaY);
+            ctx.lineTo(GAME_CONFIG.canvas.width, areaY);
             ctx.stroke();
         }
         
         // 각 영역의 배경
-        drawBackground(areaX, areaWidth, i);
+        drawBackground(areaY, areaHeight, i);
         
         // 각 영역의 땅
         ctx.fillStyle = '#DEB887';
-        ctx.fillRect(areaX, GAME_CONFIG.canvas.height - GAME_CONFIG.ground.height, 
-                    areaWidth, GAME_CONFIG.ground.height);
+        ctx.fillRect(0, areaY + areaHeight - GAME_CONFIG.ground.height, 
+                    GAME_CONFIG.canvas.width, GAME_CONFIG.ground.height);
         
         // 각 플레이어의 장애물 그리기
         for (let obstacle of player.obstacles) {
@@ -512,27 +555,35 @@ function renderGame() {
         // 플레이어 그리기
         player.draw();
         
-        // 플레이어 번호 표시
+        // 플레이어 정보 표시
         ctx.fillStyle = player.color;
-        ctx.font = 'bold 20px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(`P${i + 1}`, areaX + areaWidth/2, 30);
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText(`플레이어 ${i + 1} - ${Math.floor(player.distance / 10)}점`, 10, areaY + 25);
+        
+        if (!player.isAlive) {
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.7)';
+            ctx.font = 'bold 24px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('GAME OVER', GAME_CONFIG.canvas.width / 2, areaY + areaHeight / 2);
+        }
     }
 }
 
-function drawBackground(areaX, areaWidth, playerIndex) {
+function drawBackground(areaY, areaHeight, playerIndex) {
     // 구름 그리기 (각 플레이어별로)
     ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
     const cloudOffset = (gameState.distance * 0.1) % 200;
-    const cloudsInArea = Math.ceil(areaWidth / 150);
+    const cloudsInWidth = Math.ceil(GAME_CONFIG.canvas.width / 150);
+    const cloudY = areaY + 30;
     
-    for (let i = 0; i < cloudsInArea; i++) {
-        const x = areaX + (i * 150) - cloudOffset;
-        if (x > areaX - 60 && x < areaX + areaWidth + 60) {
+    for (let i = 0; i < cloudsInWidth; i++) {
+        const x = (i * 150) - cloudOffset;
+        if (x > -60 && x < GAME_CONFIG.canvas.width + 60) {
             ctx.beginPath();
-            ctx.arc(x, 80, 15, 0, Math.PI * 2);
-            ctx.arc(x + 15, 80, 20, 0, Math.PI * 2);
-            ctx.arc(x + 30, 80, 15, 0, Math.PI * 2);
+            ctx.arc(x, cloudY, 10, 0, Math.PI * 2);
+            ctx.arc(x + 15, cloudY, 15, 0, Math.PI * 2);
+            ctx.arc(x + 30, cloudY, 10, 0, Math.PI * 2);
             ctx.fill();
         }
     }
