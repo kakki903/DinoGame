@@ -8,11 +8,13 @@ const GAME_CONFIG = {
     height: 50,
   },
   gravity: 0.8,
-  jumpPower: -12, // 기본 점프력 감소
-  doubleJumpPower: -10, // 2단 점프력
+  jumpPower: -9, // 조정된 1단 점프력
+  doubleJumpPower: -11, // 조정된 2단 점프력 (적절한 높이)
   slideHeight: 30,
   baseSpeed: 5,
   speedIncrease: 0.001,
+  speedBoostInterval: 15000, // 15초마다 속도 증가
+  speedBoostAmount: 0.3, // 15초마다 속도 30% 증가
   obstacleMinDistance: 200,
   obstacleMaxDistance: 400,
 };
@@ -42,6 +44,8 @@ let gameState = {
   gameSpeed: GAME_CONFIG.baseSpeed,
   isPaused: false,
   gameStartTime: 0,
+  lastSpeedBoost: 0, // 마지막 속도 증가 시간
+  speedBoostCount: 0, // 속도 증가 횟수
 };
 
 // 게임 객체들
@@ -304,9 +308,7 @@ class Player {
   }
 
   update() {
-    if (!this.isAlive) return;
-
-    // 중력 적용
+    // 중력 적용 (죽어도 물리적 움직임은 계속)
     if (this.isJumping) {
       this.velocityY += GAME_CONFIG.gravity;
       this.y += this.velocityY;
@@ -331,8 +333,10 @@ class Player {
       }
     }
 
-    // 거리 증가
-    this.distance += gameState.gameSpeed * gameState.speedMultiplier;
+    // 살아있을 때만 거리 증가
+    if (this.isAlive) {
+      this.distance += gameState.gameSpeed * gameState.speedMultiplier;
+    }
   }
 
   jump() {
@@ -437,24 +441,23 @@ class Obstacle {
     const gameAreaY = playerIndex * gameAreaHeight;
     const groundY = gameAreaY + gameAreaHeight - GAME_CONFIG.ground.height;
 
-    if (type === "cactus") {
-      this.width = 25;
-      this.height = 70; // 2단 점프가 필요한 높이
-      this.y = groundY - this.height;
-      this.color = "#228B22";
-    } else if (type === "bird") {
+    if (type === "bird") {
       this.width = 40;
-      this.height = 25;
-      this.y = groundY - 60; // 1단 점프로는 부족하고 슬라이드 또는 2단점프 필요
+      this.height = 20; // 새 높이를 유지
+      this.y = groundY - 60; // 위치를 높여 슬라이드로 피할 수 있도록 조정
       this.color = "#8B4513";
     } else if (type === "lowCactus") {
       this.width = 30;
-      this.height = 45; // 1단 점프로 넘을 수 있는 높이
+      this.height = 20; // 낮은 선인장 크기 줄임
       this.y = groundY - this.height;
       this.color = "#32CD32";
+    } else if (type === "cactus") {
+      this.width = 20;
+      this.height = 80; // 일반 선인장 크기를 줄임
+      this.y = groundY - this.height;
+      this.color = "#228B22";
     }
   }
-
   update() {
     this.x -= gameState.gameSpeed * gameState.speedMultiplier;
   }
@@ -462,14 +465,17 @@ class Obstacle {
   draw() {
     ctx.fillStyle = this.color;
     if (this.type === "cactus") {
-      // 매우 높은 선인장 - 2단 점프로 피해야 함
+      // 매우 높은 선인장 - 2단 점프로만 통과 가능
       ctx.fillRect(this.x + 5, this.y, 15, this.height);
-      ctx.fillRect(this.x, this.y + 20, 25, 15);
-      ctx.fillRect(this.x + 8, this.y - 5, 8, 20);
-      ctx.fillRect(this.x + 3, this.y + 35, 6, 15);
-      ctx.fillRect(this.x + 16, this.y + 35, 6, 15);
+      ctx.fillRect(this.x, this.y + 25, 25, 20);
+      ctx.fillRect(this.x + 8, this.y - 8, 8, 25);
+      ctx.fillRect(this.x + 3, this.y + 45, 6, 20);
+      ctx.fillRect(this.x + 16, this.y + 45, 6, 20);
+      // 추가 가지들로 더 높게
+      ctx.fillRect(this.x + 2, this.y + 65, 4, 15);
+      ctx.fillRect(this.x + 19, this.y + 65, 4, 15);
     } else if (this.type === "bird") {
-      // 새 - 슬라이드로 피해야 함 (낮게 날아옴)
+      // 새 - 2단 점프 또는 슬라이드로만 통과 가능 (높은 위치)
       ctx.fillRect(this.x + 10, this.y + 5, 20, 15);
       ctx.fillRect(this.x + 5, this.y + 8, 10, 8);
       ctx.fillRect(this.x + 30, this.y + 8, 10, 8);
@@ -478,11 +484,11 @@ class Obstacle {
       ctx.fillRect(this.x + 12, this.y, 16, 8);
       ctx.fillRect(this.x + 15, this.y + 15, 10, 5);
     } else if (this.type === "lowCactus") {
-      // 중간 높이 선인장 - 1단 점프로 피해야 함
+      // 중간 높이 선인장 - 1단 점프로만 통과 가능
       ctx.fillRect(this.x + 2, this.y, 26, this.height);
-      ctx.fillRect(this.x + 5, this.y - 8, 8, 15);
-      ctx.fillRect(this.x + 17, this.y - 8, 8, 15);
-      ctx.fillRect(this.x, this.y + 15, 30, 10);
+      ctx.fillRect(this.x + 5, this.y - 10, 8, 20);
+      ctx.fillRect(this.x + 17, this.y - 10, 8, 20);
+      ctx.fillRect(this.x, this.y + 20, 30, 15);
     }
   }
 
@@ -551,6 +557,7 @@ function checkCollisions() {
 
 function spawnObstacles() {
   for (let player of players) {
+    // 죽은 플레이어는 새로운 장애물 생성하지 않음
     if (!player.isAlive) continue;
 
     const lastObstacle = player.obstacles[player.obstacles.length - 1];
@@ -565,12 +572,12 @@ function spawnObstacles() {
     ) {
       const rand = Math.random();
       let type;
-      if (rand < 0.3) {
-        type = "cactus"; // 30% - 2단 점프로 피함
-      } else if (rand < 0.65) {
-        type = "lowCactus"; // 35% - 1단 점프로 피함
+      if (rand < 0.33) {
+        type = "cactus"; // 33% - 2단 점프로만 통과
+      } else if (rand < 0.66) {
+        type = "lowCactus"; // 33% - 1단 점프로만 통과
       } else {
-        type = "bird"; // 35% - 슬라이드로 피함
+        type = "bird"; // 33% - 2단 점프 또는 슬라이드로만 통과
       }
 
       const obstacle = new Obstacle(spawnX, type, player.index);
@@ -582,33 +589,51 @@ function spawnObstacles() {
 function updateGame() {
   if (gameState.isPaused) return;
 
-  // 게임 속도 증가
+  // 15초마다 속도 증가
+  const currentTime = Date.now();
+  const elapsedTime = currentTime - gameState.gameStartTime;
+  const expectedBoosts = Math.floor(
+    elapsedTime / GAME_CONFIG.speedBoostInterval
+  );
+
+  if (expectedBoosts > gameState.speedBoostCount) {
+    gameState.speedMultiplier += GAME_CONFIG.speedBoostAmount;
+    gameState.speedBoostCount = expectedBoosts;
+  }
+
+  // 기본 게임 속도 증가
   gameState.gameSpeed += GAME_CONFIG.speedIncrease;
 
   // 플레이어 업데이트
   for (let player of players) {
     player.update();
 
-    // 각 플레이어의 장애물 업데이트
-    for (let obstacle of player.obstacles) {
-      obstacle.update();
-    }
+    // 살아있는 플레이어의 장애물만 업데이트 (죽은 플레이어 영역은 정지)
+    if (player.isAlive) {
+      for (let obstacle of player.obstacles) {
+        obstacle.update();
+      }
 
-    // 각 플레이어의 화면 밖 장애물 제거
-    player.obstacles = player.obstacles.filter(
-      (obstacle) => obstacle.x > -obstacle.width
-    );
+      // 화면 밖 장애물 제거
+      player.obstacles = player.obstacles.filter(
+        (obstacle) => obstacle.x > -obstacle.width
+      );
+    }
   }
 
-  // 새 장애물 생성
+  // 새 장애물 생성 (살아있는 플레이어에게만)
   spawnObstacles();
 
   // 충돌 체크
   checkCollisions();
 
-  // 점수 업데이트
-  gameState.distance += gameState.gameSpeed * gameState.speedMultiplier;
-  gameState.score = Math.floor(gameState.distance / 10);
+  // 점수 업데이트 (살아있는 플레이어들의 평균 거리)
+  const alivePlayers = players.filter((p) => p.isAlive);
+  if (alivePlayers.length > 0) {
+    const totalDistance = alivePlayers.reduce((sum, p) => sum + p.distance, 0);
+    gameState.distance = totalDistance / alivePlayers.length;
+    gameState.score = Math.floor(gameState.distance / 10);
+  }
 
   // UI 업데이트
   updateGameUI();
@@ -726,6 +751,11 @@ function startGame() {
   gameState.gameSpeed = GAME_CONFIG.baseSpeed;
   gameState.isPaused = false;
   gameState.gameStartTime = Date.now();
+  gameState.lastSpeedBoost = 0;
+  gameState.speedBoostCount = 0;
+  gameState.speedMultiplier = parseFloat(
+    document.querySelector(".speed-btn.active").dataset.speed
+  );
 
   // 캔버스 크기 업데이트
   updateCanvasSize();
