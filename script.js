@@ -439,13 +439,13 @@ class Obstacle {
 
     if (type === "cactus") {
       this.width = 25;
-      this.height = 80; // 2단 점프가 필요한 높이
+      this.height = 70; // 2단 점프가 필요한 높이
       this.y = groundY - this.height;
       this.color = "#228B22";
     } else if (type === "bird") {
       this.width = 40;
       this.height = 25;
-      this.y = groundY - 40; // 1단 점프로는 부족하고 슬라이드 또는 2단점프 필요
+      this.y = groundY - 60; // 1단 점프로는 부족하고 슬라이드 또는 2단점프 필요
       this.color = "#8B4513";
     } else if (type === "lowCactus") {
       this.width = 30;
@@ -523,15 +523,50 @@ function checkCollisions() {
     for (let obstacle of player.obstacles) {
       const obstacleHitbox = obstacle.getHitbox();
 
-      if (
+      const collided =
         playerHitbox.x < obstacleHitbox.x + obstacleHitbox.width &&
         playerHitbox.x + playerHitbox.width > obstacleHitbox.x &&
         playerHitbox.y < obstacleHitbox.y + obstacleHitbox.height &&
-        playerHitbox.y + playerHitbox.height > obstacleHitbox.y
-      ) {
+        playerHitbox.y + playerHitbox.height > obstacleHitbox.y;
+
+      if (!collided) continue;
+
+      // 장애물별 회피 조건
+      let avoided = false;
+
+      if (obstacle.type === "cactus") {
+        // 2단 점프 이후 공중에 충분히 떠있어야 함
+        if (
+          player.isJumping &&
+          !player.canDoubleJump &&
+          player.y + player.height < obstacle.y + obstacle.height / 2
+        ) {
+          avoided = true;
+        }
+      } else if (obstacle.type === "bird") {
+        // 슬라이딩 중이거나 2단 점프 이후 공중에 충분히 떠 있을 경우
+        if (
+          player.isSliding ||
+          (player.isJumping &&
+            !player.canDoubleJump &&
+            player.y + player.height < obstacle.y + obstacle.height / 2)
+        ) {
+          avoided = true;
+        }
+      } else if (obstacle.type === "lowCactus") {
+        // 공중에 떠 있기만 하면 회피
+        if (
+          player.isJumping &&
+          player.y + player.height < obstacle.y + obstacle.height / 2
+        ) {
+          avoided = true;
+        }
+      }
+
+      if (!avoided) {
         player.isAlive = false;
 
-        // 점수모드에서 한 명이라도 죽으면 게임 종료
+        // 점수모드에서는 누구든 죽으면 게임 종료
         if (gameState.mode === "score") {
           endGame();
           return;
@@ -540,7 +575,7 @@ function checkCollisions() {
     }
   }
 
-  // 대결모드에서 모든 플레이어가 죽었는지 체크
+  // 대결 모드일 경우: 모든 플레이어 사망 시 게임 종료
   if (gameState.mode === "battle") {
     const alivePlayers = players.filter((p) => p.isAlive);
     if (alivePlayers.length === 0) {
