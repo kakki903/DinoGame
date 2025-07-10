@@ -90,13 +90,23 @@ function initializeDOM() {
 function initializeCanvas() {
     canvas = document.getElementById('game-canvas');
     ctx = canvas.getContext('2d');
+    updateCanvasSize();
+}
+
+function updateCanvasSize() {
+    // 플레이어 수에 따라 캔버스 높이 조정
+    const baseHeight = 250;  // 1인용 기본 높이
+    const heightPerPlayer = 200;  // 플레이어당 추가 높이
+    const newHeight = Math.max(baseHeight, heightPerPlayer * gameState.players);
+    
+    GAME_CONFIG.canvas.height = newHeight;
     
     // 고해상도 지원
     const ratio = window.devicePixelRatio || 1;
     canvas.width = GAME_CONFIG.canvas.width * ratio;
-    canvas.height = GAME_CONFIG.canvas.height * ratio;
+    canvas.height = newHeight * ratio;
     canvas.style.width = GAME_CONFIG.canvas.width + 'px';
-    canvas.style.height = GAME_CONFIG.canvas.height + 'px';
+    canvas.style.height = newHeight + 'px';
     ctx.scale(ratio, ratio);
 }
 
@@ -107,6 +117,7 @@ function initializeEventListeners() {
             playerButtons.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             gameState.players = parseInt(btn.dataset.players);
+            updateCanvasSize();  // 캔버스 크기 업데이트
             updateKeySettings();
         });
     });
@@ -663,6 +674,9 @@ function startGame() {
     gameState.gameSpeed = GAME_CONFIG.baseSpeed;
     gameState.isPaused = false;
     gameState.gameStartTime = Date.now();
+    
+    // 캔버스 크기 업데이트
+    updateCanvasSize();
     
     // 플레이어 생성
     players = [];

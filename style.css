@@ -192,6 +192,7 @@ h3 {
     background: linear-gradient(to bottom, #87CEEB 0%, #F0E68C 70%, #DEB887 100%);
     display: block;
     margin: 0 auto;
+    max-height: 80vh;  /* 뷰포트 높이의 80%로 제한 */
 }
 
 #player-status {
