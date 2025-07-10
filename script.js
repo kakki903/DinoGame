@@ -9,8 +9,8 @@ const GAME_CONFIG = {
         height: 50
     },
     gravity: 0.8,
-    jumpPower: -10,     // 기본 점프력 더 감소
-    doubleJumpPower: -8, // 2단 점프력 더 감소
+    jumpPower: -12,     // 기본 점프력 복원
+    doubleJumpPower: -10, // 2단 점프력 복원
     slideHeight: 30,
     baseSpeed: 5,
     speedIncrease: 0.001,
@@ -415,17 +415,17 @@ class Obstacle {
         
         if (type === 'cactus') {
             this.width = 25;
-            this.height = 70;  // 2단 점프가 필요한 높이
+            this.height = 60;  // 2단 점프가 필요한 높이 (약간 낮춤)
             this.y = groundY - this.height;
             this.color = '#228B22';
         } else if (type === 'bird') {
             this.width = 40;
             this.height = 25;
-            this.y = groundY - 60; // 1단 점프로는 부족하고 슬라이드 또는 2단점프 필요
+            this.y = groundY - 50; // 슬라이드 또는 2단점프로 피할 수 있는 높이
             this.color = '#8B4513';
         } else if (type === 'lowCactus') {
             this.width = 30;
-            this.height = 45;  // 1단 점프로 넘을 수 있는 높이
+            this.height = 35;  // 1단 점프로 넘을 수 있는 높이 (약간 낮춤)
             this.y = groundY - this.height;
             this.color = '#32CD32';
         }
