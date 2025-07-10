@@ -105,6 +105,26 @@ h3 {
     border-radius: 3px;
 }
 
+.key-controls {
+    display: flex;
+    gap: 10px;
+}
+
+.key-change-btn {
+    background: #e0e0e0;
+    border: 1px solid #ccc;
+    padding: 8px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: all 0.2s;
+}
+
+.key-change-btn:hover {
+    background: #d0d0d0;
+    transform: translateY(-1px);
+}
+
 #best-scores {
     background: white;
     padding: 15px;

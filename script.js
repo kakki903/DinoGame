@@ -20,13 +20,16 @@ const GAME_CONFIG = {
 // 플레이어 색상
 const PLAYER_COLORS = ['#FF6347', '#4CAF50', '#2196F3', '#FF9800'];
 
-// 조작 키 설정
-const PLAYER_KEYS = [
-    { jump: ' ', slide: 'ArrowDown' },    // 플레이어 1
-    { jump: 'w', slide: 's' },           // 플레이어 2
-    { jump: 'i', slide: 'k' },           // 플레이어 3
-    { jump: 'numpad8', slide: 'numpad2' } // 플레이어 4
+// 조작 키 설정 (변경 가능)
+let PLAYER_KEYS = [
+    { jump: 'Space', slide: 'ArrowDown' },    // 플레이어 1
+    { jump: 'KeyW', slide: 'KeyS' },          // 플레이어 2
+    { jump: 'KeyI', slide: 'KeyK' },          // 플레이어 3
+    { jump: 'Numpad8', slide: 'Numpad2' }     // 플레이어 4
 ];
+
+// 키 설정 변경 상태
+let isChangingKey = null; // { playerIndex, keyType } 또는 null
 
 // 게임 상태
 let gameState = {
@@ -134,10 +137,18 @@ function initializeEventListeners() {
     // 키보드 이벤트
     document.addEventListener('keydown', (e) => {
         pressedKeys[e.code] = true;
-        pressedKeys[e.key] = true;
+        
+        // 키 설정 변경 모드인 경우
+        if (isChangingKey) {
+            PLAYER_KEYS[isChangingKey.playerIndex][isChangingKey.keyType] = e.code;
+            isChangingKey = null;
+            updateKeySettings();
+            e.preventDefault();
+            return;
+        }
         
         if (gameState.screen === 'game' && !gameState.isPaused) {
-            handlePlayerInput(e.key, e.code);
+            handlePlayerInput(e.code);
         }
         
         // ESC 키로 일시정지
@@ -148,7 +159,6 @@ function initializeEventListeners() {
     
     document.addEventListener('keyup', (e) => {
         pressedKeys[e.code] = false;
-        pressedKeys[e.key] = false;
     });
 }
 
@@ -156,14 +166,16 @@ function updateKeySettings() {
     keySettings.innerHTML = '';
     
     const keyNames = {
-        ' ': '스페이스바',
+        'Space': '스페이스바',
         'ArrowDown': '아래화살표',
-        'w': 'W',
-        's': 'S', 
-        'i': 'I',
-        'k': 'K',
-        'numpad8': '넘패드8',
-        'numpad2': '넘패드2'
+        'ArrowUp': '위화살표',
+        'ArrowLeft': '왼쪽화살표',
+        'ArrowRight': '오른쪽화살표',
+        'KeyW': 'W', 'KeyA': 'A', 'KeyS': 'S', 'KeyD': 'D',
+        'KeyQ': 'Q', 'KeyE': 'E', 'KeyR': 'R', 'KeyT': 'T',
+        'KeyI': 'I', 'KeyO': 'O', 'KeyP': 'P', 'KeyK': 'K', 'KeyL': 'L',
+        'Numpad8': '넘패드8', 'Numpad2': '넘패드2', 'Numpad4': '넘패드4', 'Numpad6': '넘패드6',
+        'Enter': '엔터', 'ShiftLeft': '왼쪽Shift', 'ShiftRight': '오른쪽Shift'
     };
     
     for (let i = 0; i < gameState.players; i++) {
@@ -171,12 +183,25 @@ function updateKeySettings() {
         const div = document.createElement('div');
         div.className = 'player-keys';
         div.dataset.player = i + 1;
+        
+        const jumpKeyName = keyNames[playerKeys.jump] || playerKeys.jump;
+        const slideKeyName = keyNames[playerKeys.slide] || playerKeys.slide;
+        
         div.innerHTML = `
             <span style="color: ${PLAYER_COLORS[i]}; font-weight: bold;">플레이어 ${i + 1}:</span>
-            <span class="key-display">${keyNames[playerKeys.jump]} (점프) / ${keyNames[playerKeys.slide]} (슬라이드)</span>
+            <div class="key-controls">
+                <button class="key-change-btn" onclick="changeKey(${i}, 'jump')">${jumpKeyName} (점프)</button>
+                <button class="key-change-btn" onclick="changeKey(${i}, 'slide')">${slideKeyName} (슬라이드)</button>
+            </div>
         `;
         keySettings.appendChild(div);
     }
+}
+
+function changeKey(playerIndex, keyType) {
+    isChangingKey = { playerIndex, keyType };
+    const allBtns = document.querySelectorAll('.key-change-btn');
+    allBtns.forEach(btn => btn.textContent = btn.textContent.includes('점프') ? '점프키를 눌러주세요...' : '슬라이드키를 눌러주세요...');
 }
 
 function loadBestScores() {
@@ -214,7 +239,9 @@ function saveBestScore() {
 class Player {
     constructor(index) {
         this.index = index;
-        this.x = 100 + index * 60;
+        this.gameAreaWidth = GAME_CONFIG.canvas.width / gameState.players;
+        this.gameAreaX = index * this.gameAreaWidth;
+        this.x = this.gameAreaX + 80;
         this.y = GAME_CONFIG.canvas.height - GAME_CONFIG.ground.height - 50;
         this.width = 40;
         this.height = 50;
@@ -226,6 +253,7 @@ class Player {
         this.distance = 0;
         this.keys = PLAYER_KEYS[index];
         this.groundY = this.y;
+        this.obstacles = []; // 각 플레이어별 독립된 장애물
     }
     
     update() {
@@ -340,15 +368,15 @@ class Obstacle {
     }
 }
 
-function handlePlayerInput(key, code) {
+function handlePlayerInput(code) {
     for (let player of players) {
         if (!player.isAlive) continue;
         
-        if (key === player.keys.jump || code === player.keys.jump) {
+        if (code === player.keys.jump) {
             player.jump();
         }
         
-        if (key === player.keys.slide || code === player.keys.slide) {
+        if (code === player.keys.slide) {
             player.startSlide();
         }
     }
@@ -360,7 +388,7 @@ function checkCollisions() {
         
         const playerHitbox = player.getHitbox();
         
-        for (let obstacle of obstacles) {
+        for (let obstacle of player.obstacles) {
             const obstacleHitbox = obstacle.getHitbox();
             
             if (playerHitbox.x < obstacleHitbox.x + obstacleHitbox.width &&
@@ -388,16 +416,23 @@ function checkCollisions() {
     }
 }
 
-function spawnObstacle() {
-    const lastObstacle = obstacles[obstacles.length - 1];
-    const minDistance = GAME_CONFIG.obstacleMinDistance;
-    const maxDistance = GAME_CONFIG.obstacleMaxDistance;
-    
-    if (!lastObstacle || 
-        GAME_CONFIG.canvas.width - lastObstacle.x > minDistance + Math.random() * (maxDistance - minDistance)) {
+function spawnObstacles() {
+    for (let player of players) {
+        if (!player.isAlive) continue;
         
-        const type = Math.random() > 0.7 ? 'bird' : 'cactus';
-        obstacles.push(new Obstacle(GAME_CONFIG.canvas.width, type));
+        const lastObstacle = player.obstacles[player.obstacles.length - 1];
+        const minDistance = GAME_CONFIG.obstacleMinDistance;
+        const maxDistance = GAME_CONFIG.obstacleMaxDistance;
+        const spawnX = player.gameAreaX + player.gameAreaWidth;
+        
+        if (!lastObstacle || 
+            spawnX - lastObstacle.x > minDistance + Math.random() * (maxDistance - minDistance)) {
+            
+            const type = Math.random() > 0.7 ? 'bird' : 'cactus';
+            const obstacle = new Obstacle(spawnX, type);
+            obstacle.playerIndex = player.index; // 어느 플레이어의 장애물인지 표시
+            player.obstacles.push(obstacle);
+        }
     }
 }
 
@@ -410,26 +445,25 @@ function updateGame() {
     // 플레이어 업데이트
     for (let player of players) {
         player.update();
-    }
-    
-    // 슬라이드 키 해제 체크
-    for (let player of players) {
+        
+        // 슬라이드 키 해제 체크
         const slideKey = player.keys.slide;
         if (!pressedKeys[slideKey]) {
             player.stopSlide();
         }
+        
+        // 각 플레이어의 장애물 업데이트
+        for (let obstacle of player.obstacles) {
+            obstacle.update();
+        }
+        
+        // 각 플레이어의 화면 밖 장애물 제거
+        player.obstacles = player.obstacles.filter(obstacle => 
+            obstacle.x > player.gameAreaX - obstacle.width);
     }
-    
-    // 장애물 업데이트
-    for (let obstacle of obstacles) {
-        obstacle.update();
-    }
-    
-    // 화면 밖 장애물 제거
-    obstacles = obstacles.filter(obstacle => obstacle.x > -obstacle.width);
     
     // 새 장애물 생성
-    spawnObstacle();
+    spawnObstacles();
     
     // 충돌 체크
     checkCollisions();
@@ -446,36 +480,61 @@ function renderGame() {
     // 캔버스 클리어
     ctx.clearRect(0, 0, GAME_CONFIG.canvas.width, GAME_CONFIG.canvas.height);
     
-    // 배경 그리기
-    drawBackground();
-    
-    // 땅 그리기
-    ctx.fillStyle = '#DEB887';
-    ctx.fillRect(0, GAME_CONFIG.canvas.height - GAME_CONFIG.ground.height, 
-                GAME_CONFIG.canvas.width, GAME_CONFIG.ground.height);
-    
-    // 장애물 그리기
-    for (let obstacle of obstacles) {
-        obstacle.draw();
-    }
-    
-    // 플레이어 그리기
-    for (let player of players) {
+    // 각 플레이어별 게임 영역 그리기
+    for (let i = 0; i < players.length; i++) {
+        const player = players[i];
+        const areaX = player.gameAreaX;
+        const areaWidth = player.gameAreaWidth;
+        
+        // 게임 영역 구분선
+        if (i > 0) {
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(areaX, 0);
+            ctx.lineTo(areaX, GAME_CONFIG.canvas.height);
+            ctx.stroke();
+        }
+        
+        // 각 영역의 배경
+        drawBackground(areaX, areaWidth, i);
+        
+        // 각 영역의 땅
+        ctx.fillStyle = '#DEB887';
+        ctx.fillRect(areaX, GAME_CONFIG.canvas.height - GAME_CONFIG.ground.height, 
+                    areaWidth, GAME_CONFIG.ground.height);
+        
+        // 각 플레이어의 장애물 그리기
+        for (let obstacle of player.obstacles) {
+            obstacle.draw();
+        }
+        
+        // 플레이어 그리기
         player.draw();
+        
+        // 플레이어 번호 표시
+        ctx.fillStyle = player.color;
+        ctx.font = 'bold 20px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`P${i + 1}`, areaX + areaWidth/2, 30);
     }
 }
 
-function drawBackground() {
-    // 구름 그리기 (간단한 원형)
+function drawBackground(areaX, areaWidth, playerIndex) {
+    // 구름 그리기 (각 플레이어별로)
     ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-    const cloudOffset = (gameState.distance * 0.1) % 400;
-    for (let i = 0; i < 4; i++) {
-        const x = i * 300 - cloudOffset;
-        ctx.beginPath();
-        ctx.arc(x, 80, 20, 0, Math.PI * 2);
-        ctx.arc(x + 20, 80, 25, 0, Math.PI * 2);
-        ctx.arc(x + 40, 80, 20, 0, Math.PI * 2);
-        ctx.fill();
+    const cloudOffset = (gameState.distance * 0.1) % 200;
+    const cloudsInArea = Math.ceil(areaWidth / 150);
+    
+    for (let i = 0; i < cloudsInArea; i++) {
+        const x = areaX + (i * 150) - cloudOffset;
+        if (x > areaX - 60 && x < areaX + areaWidth + 60) {
+            ctx.beginPath();
+            ctx.arc(x, 80, 15, 0, Math.PI * 2);
+            ctx.arc(x + 15, 80, 20, 0, Math.PI * 2);
+            ctx.arc(x + 30, 80, 15, 0, Math.PI * 2);
+            ctx.fill();
+        }
     }
 }
 
@@ -511,8 +570,8 @@ function startGame() {
         players.push(new Player(i));
     }
     
-    // 장애물 초기화
-    obstacles = [];
+    // 키 설정 변경 모드 해제
+    isChangingKey = null;
     
     // 화면 전환
     showScreen('game');
