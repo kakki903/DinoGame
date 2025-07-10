@@ -9,7 +9,8 @@ const GAME_CONFIG = {
         height: 50
     },
     gravity: 0.8,
-    jumpPower: -15,
+    jumpPower: -12,     // 기본 점프력 감소
+    doubleJumpPower: -10, // 2단 점프력
     slideHeight: 30,
     baseSpeed: 5,
     speedIncrease: 0.001,
@@ -251,6 +252,7 @@ class Player {
         this.height = 50;
         this.velocityY = 0;
         this.isJumping = false;
+        this.canDoubleJump = false;  // 2단 점프 가능 여부
         this.isSliding = false;
         this.isAlive = true;
         this.color = PLAYER_COLORS[index];
@@ -272,6 +274,7 @@ class Player {
                 this.y = this.groundY;
                 this.velocityY = 0;
                 this.isJumping = false;
+                this.canDoubleJump = false; // 착지 시 2단 점프 리셋
             }
         } else {
             // 점프 중이 아닐 때 슬라이딩 높이 조정
@@ -291,10 +294,18 @@ class Player {
     }
     
     jump() {
-        if (!this.isJumping && this.isAlive) {
-            this.isJumping = true;
-            this.velocityY = GAME_CONFIG.jumpPower;
-            this.isSliding = false; // 점프 시 슬라이딩 해제
+        if (this.isAlive) {
+            if (!this.isJumping) {
+                // 1단 점프
+                this.isJumping = true;
+                this.velocityY = GAME_CONFIG.jumpPower;
+                this.canDoubleJump = true;
+                this.isSliding = false; // 점프 시 슬라이딩 해제
+            } else if (this.canDoubleJump) {
+                // 2단 점프
+                this.velocityY = GAME_CONFIG.doubleJumpPower;
+                this.canDoubleJump = false;
+            }
         }
     }
     
@@ -386,17 +397,17 @@ class Obstacle {
         
         if (type === 'cactus') {
             this.width = 25;
-            this.height = 50;
+            this.height = 70;  // 2단 점프가 필요한 높이
             this.y = groundY - this.height;
             this.color = '#228B22';
         } else if (type === 'bird') {
             this.width = 40;
             this.height = 25;
-            this.y = groundY - 80; // 플레이어 점프 높이에 맞춤
+            this.y = groundY - 35; // 슬라이드로 피할 수 있는 높이
             this.color = '#8B4513';
         } else if (type === 'lowCactus') {
             this.width = 30;
-            this.height = 30;
+            this.height = 45;  // 1단 점프로 넘을 수 있는 높이
             this.y = groundY - this.height;
             this.color = '#32CD32';
         }
@@ -409,23 +420,27 @@ class Obstacle {
     draw() {
         ctx.fillStyle = this.color;
         if (this.type === 'cactus') {
-            // 높은 선인장 - 점프로 피해야 함
+            // 매우 높은 선인장 - 2단 점프로 피해야 함
             ctx.fillRect(this.x + 5, this.y, 15, this.height);
-            ctx.fillRect(this.x, this.y + 15, 25, 10);
-            ctx.fillRect(this.x + 8, this.y - 5, 8, 15);
+            ctx.fillRect(this.x, this.y + 20, 25, 15);
+            ctx.fillRect(this.x + 8, this.y - 5, 8, 20);
+            ctx.fillRect(this.x + 3, this.y + 35, 6, 15);
+            ctx.fillRect(this.x + 16, this.y + 35, 6, 15);
         } else if (this.type === 'bird') {
-            // 새 - 점프로 피해야 함 (공중에 있음)
+            // 새 - 슬라이드로 피해야 함 (낮게 날아옴)
             ctx.fillRect(this.x + 10, this.y + 5, 20, 15);
             ctx.fillRect(this.x + 5, this.y + 8, 10, 8);
             ctx.fillRect(this.x + 30, this.y + 8, 10, 8);
             // 날개
             ctx.fillStyle = '#654321';
             ctx.fillRect(this.x + 12, this.y, 16, 8);
+            ctx.fillRect(this.x + 15, this.y + 15, 10, 5);
         } else if (this.type === 'lowCactus') {
-            // 낮은 선인장 - 슬라이드로 피해야 함
-            ctx.fillRect(this.x, this.y, this.width, this.height);
-            ctx.fillRect(this.x + 5, this.y - 8, 8, 12);
-            ctx.fillRect(this.x + 17, this.y - 8, 8, 12);
+            // 중간 높이 선인장 - 1단 점프로 피해야 함
+            ctx.fillRect(this.x + 2, this.y, 26, this.height);
+            ctx.fillRect(this.x + 5, this.y - 8, 8, 15);
+            ctx.fillRect(this.x + 17, this.y - 8, 8, 15);
+            ctx.fillRect(this.x, this.y + 15, 30, 10);
         }
     }
     
@@ -505,12 +520,12 @@ function spawnObstacles() {
             
             const rand = Math.random();
             let type;
-            if (rand < 0.4) {
-                type = 'cactus';     // 40% - 점프로 피함
-            } else if (rand < 0.7) {
-                type = 'lowCactus';  // 30% - 슬라이드로 피함
+            if (rand < 0.3) {
+                type = 'cactus';     // 30% - 2단 점프로 피함
+            } else if (rand < 0.65) {
+                type = 'lowCactus';  // 35% - 1단 점프로 피함
             } else {
-                type = 'bird';       // 30% - 점프로 피함
+                type = 'bird';       // 35% - 슬라이드로 피함
             }
             
             const obstacle = new Obstacle(spawnX, type, player.index);
