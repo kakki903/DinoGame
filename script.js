@@ -273,15 +273,17 @@ class Player {
                 this.velocityY = 0;
                 this.isJumping = false;
             }
-        }
-        
-        // 슬라이딩 높이 조정
-        if (this.isSliding) {
-            this.height = GAME_CONFIG.slideHeight;
-            this.y = this.groundY + (50 - GAME_CONFIG.slideHeight);
         } else {
-            this.height = 50;
-            this.y = this.groundY;
+            // 점프 중이 아닐 때 슬라이딩 높이 조정
+            if (this.isSliding) {
+                this.height = GAME_CONFIG.slideHeight;
+                this.y = this.groundY + (50 - GAME_CONFIG.slideHeight);
+            } else {
+                this.height = 50;
+                if (!this.isJumping) {
+                    this.y = this.groundY;
+                }
+            }
         }
         
         // 거리 증가
@@ -289,9 +291,10 @@ class Player {
     }
     
     jump() {
-        if (!this.isJumping && !this.isSliding && this.isAlive) {
+        if (!this.isJumping && this.isAlive) {
             this.isJumping = true;
             this.velocityY = GAME_CONFIG.jumpPower;
+            this.isSliding = false; // 점프 시 슬라이딩 해제
         }
     }
     
