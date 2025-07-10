@@ -403,7 +403,7 @@ class Obstacle {
         } else if (type === 'bird') {
             this.width = 40;
             this.height = 25;
-            this.y = groundY - 35; // 슬라이드로 피할 수 있는 높이
+            this.y = groundY - 60; // 1단 점프로는 부족하고 슬라이드 또는 2단점프 필요
             this.color = '#8B4513';
         } else if (type === 'lowCactus') {
             this.width = 30;
