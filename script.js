@@ -439,7 +439,7 @@ class Obstacle {
 
     if (type === "cactus") {
       this.width = 25;
-      this.height = 70; // 2단 점프가 필요한 높이
+      this.height = 75; // 2단 점프가 필요한 높이
       this.y = groundY - this.height;
       this.color = "#228B22";
     } else if (type === "bird") {
